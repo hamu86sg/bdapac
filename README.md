@@ -62,9 +62,8 @@ Provide Claude with your GitHub username when asked.
 
 | Secret name | Value |
 |-------------|-------|
-| `ANTHROPIC_API_KEY` | Your `sk-ant-...` key |
-| `GMAIL_SENDER` | The Gmail address (e.g. `wwt.apac.monitor@gmail.com`) |
-| `GMAIL_APP_PASSWORD` | The 16-character app password |
+| `GEMINI_API_KEY` | Your `AIza...` key from aistudio.google.com |
+| `RESEND_API_KEY` | Your `re_...` key from resend.com |
 | `RECIPIENT_EMAIL` | `hamilton.lau@wwt.com` |
 
 ### Step 7 — Test run

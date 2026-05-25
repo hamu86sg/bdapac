@@ -27,7 +27,6 @@ jobs:
       - name: Run daily flash check
         run: python main_daily.py
         env:
-          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          GMAIL_SENDER:        ${{ secrets.GMAIL_SENDER }}
-          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
-          RECIPIENT_EMAIL:     ${{ secrets.RECIPIENT_EMAIL }}
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          RESEND_API_KEY:   ${{ secrets.RESEND_API_KEY }}
+          RECIPIENT_EMAIL:  ${{ secrets.RECIPIENT_EMAIL }}
