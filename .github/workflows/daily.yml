@@ -1,0 +1,33 @@
+name: Daily APAC Regulatory Flash Check
+
+on:
+  schedule:
+    # Daily 23:00 UTC = Daily 07:00 SGT (UTC+8)
+    - cron: '0 23 * * *'
+  workflow_dispatch:   # allows manual trigger for testing
+
+jobs:
+  daily-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily flash check
+        run: python main_daily.py
+        env:
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          GMAIL_SENDER:        ${{ secrets.GMAIL_SENDER }}
+          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
+          RECIPIENT_EMAIL:     ${{ secrets.RECIPIENT_EMAIL }}
