@@ -1,9 +1,9 @@
 """
-Fetches articles from RSS feeds and Google News.
+Fetches articles from RSS feeds and Google News RSS.
 Returns a deduplicated, date-sorted list of Article dicts.
 
 - All HTTP fetches use a 10-second timeout.
-- Falls back to direct feedparser URL fetch if httpx fails.
+- Falls back to feedparser's own URL fetch if httpx fails.
 - Total articles capped at MAX_ARTICLES (most recent first).
 - Verbose logging so GitHub Actions logs show exactly what was collected.
 """
@@ -39,9 +39,11 @@ GOOGLE_NEWS_RSS = (
     "&hl=en&gl=SG&ceid=SG:en"
 )
 
-FETCH_TIMEOUT = 10    # seconds per HTTP request
-MAX_ARTICLES  = 80    # cap before sending to Groq
+FETCH_TIMEOUT = 10     # seconds per HTTP request
+MAX_ARTICLES  = 80     # cap before Groq analysis
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _article_id(url: str, title: str) -> str:
     key = (url or title or "").strip().lower()
@@ -98,17 +100,17 @@ def _entry_to_article(entry, source_name: str) -> dict:
     }
 
 
-def _parse_feed(content: bytes | str, source_name: str, cutoff: datetime) -> list[dict]:
-    """Parse feed content and return recent, keyword-relevant articles."""
-    feed     = feedparser.parse(content)
-    total    = len(feed.entries)
+def _process_feed(parsed_feed, source_name: str, cutoff: datetime) -> list[dict]:
+    """Extract relevant, recent articles from an already-parsed feedparser object."""
+    total    = len(parsed_feed.entries)
     articles = []
-    for entry in feed.entries:
+    for entry in parsed_feed.entries:
         article = _entry_to_article(entry, source_name)
         if not _is_recent(article["published"], cutoff):
             continue
         if _quick_relevant(article["title"] + " " + article["summary"]):
             articles.append(article)
+
     if total > 0:
         print(f"  [OK] {source_name}: {total} entries → {len(articles)} relevant")
     else:
@@ -118,25 +120,28 @@ def _parse_feed(content: bytes | str, source_name: str, cutoff: datetime) -> lis
 
 def _fetch_feed(url: str, source_name: str, cutoff: datetime) -> list[dict]:
     """
-    Fetch one RSS/Atom feed. Tries httpx first (enforces timeout),
-    falls back to feedparser's own URL fetch if httpx fails.
+    Fetch one RSS/Atom feed.
+    Attempt 1: httpx (enforces timeout, raises on 4xx/5xx).
+    Attempt 2: feedparser direct URL fetch (different HTTP stack, more lenient).
     """
-    # Attempt 1: httpx with timeout
+    # Attempt 1 — httpx
     try:
         with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
             response = client.get(url, headers=HEADERS)
             response.raise_for_status()
-        return _parse_feed(response.content, source_name, cutoff)
+        parsed = feedparser.parse(response.content)
+        return _process_feed(parsed, source_name, cutoff)
     except httpx.TimeoutException:
         print(f"  [TIMEOUT] {source_name} — trying feedparser direct fetch")
+    except httpx.HTTPStatusError as e:
+        print(f"  [HTTP {e.response.status_code}] {source_name} — trying feedparser direct fetch")
     except Exception as e:
-        print(f"  [WARN] httpx failed for {source_name}: {type(e).__name__}: {e} — trying feedparser")
+        print(f"  [WARN] {source_name} httpx: {type(e).__name__} — trying feedparser direct fetch")
 
-    # Attempt 2: feedparser's own URL fetch (different HTTP stack)
+    # Attempt 2 — feedparser's own URL fetcher
     try:
-        feed  = feedparser.parse(url, request_headers=HEADERS,
-                                 agent=HEADERS["User-Agent"])
-        return _parse_feed(feed, source_name, cutoff)
+        parsed = feedparser.parse(url, request_headers=HEADERS)
+        return _process_feed(parsed, source_name, cutoff)
     except Exception as e:
         print(f"  [FAIL] {source_name} both methods failed: {e}")
         return []
@@ -146,6 +151,8 @@ def _fetch_google_news(query: str, cutoff: datetime) -> list[dict]:
     url = GOOGLE_NEWS_RSS.format(query=quote_plus(query))
     return _fetch_feed(url, f"Google News: {query[:60]}", cutoff)
 
+
+# ── Public collection functions ───────────────────────────────────────────────
 
 def collect_weekly() -> list[dict]:
     """Collect articles from the past 7 days across all sources."""
@@ -163,7 +170,7 @@ def _collect(cutoff: datetime) -> list[dict]:
     all_articles: list[dict] = []
     seen_ids: set[str] = set()
 
-    print("[INFO] === Collecting from official government/regulator feeds ===")
+    print("[INFO] === Official feeds ===")
     for jurisdiction, feeds in OFFICIAL_FEEDS.items():
         for feed_def in feeds:
             articles = _fetch_feed(feed_def["url"], feed_def["name"], cutoff)
@@ -172,24 +179,24 @@ def _collect(cutoff: datetime) -> list[dict]:
             all_articles.extend(articles)
             time.sleep(0.2)
 
-    print("[INFO] === Collecting from aggregator feeds ===")
+    print("[INFO] === Aggregator feeds ===")
     for feed_def in AGGREGATOR_FEEDS:
         all_articles.extend(_fetch_feed(feed_def["url"], feed_def["name"], cutoff))
         time.sleep(0.2)
 
-    print("[INFO] === Collecting from Google News queries ===")
+    print("[INFO] === Google News queries ===")
     for query in GOOGLE_NEWS_QUERIES:
         all_articles.extend(_fetch_google_news(query, cutoff))
         time.sleep(0.3)
 
-    # Deduplicate
+    # Deduplicate by article ID
     deduped = []
     for article in all_articles:
         if article["id"] not in seen_ids:
             seen_ids.add(article["id"])
             deduped.append(article)
 
-    print(f"[INFO] === Collection complete: {len(deduped)} unique relevant articles before cap ===")
+    print(f"\n[INFO] === Collection complete: {len(deduped)} unique relevant articles ===")
 
     # Sort newest-first, cap to MAX_ARTICLES
     deduped.sort(
@@ -197,8 +204,8 @@ def _collect(cutoff: datetime) -> list[dict]:
         reverse=True,
     )
     if len(deduped) > MAX_ARTICLES:
-        print(f"[INFO] Capping to {MAX_ARTICLES} most recent articles")
+        print(f"[INFO] Capping to {MAX_ARTICLES} most recent")
         deduped = deduped[:MAX_ARTICLES]
 
-    print(f"[INFO] Final article count for analysis: {len(deduped)}")
+    print(f"[INFO] Sending {len(deduped)} articles to Groq for analysis")
     return deduped
