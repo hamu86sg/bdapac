@@ -112,7 +112,11 @@ _ANALYSIS_SYSTEM = textwrap.dedent("""
     - LOW: informational update, minor amendment, or very narrow scope
 
     Consolidate multiple articles about the same development into one item.
-    Return ONLY the JSON array, no other text whatsoever.
+
+    IMPORTANT: Return a JSON object with a single key "items" containing the array.
+    Both regulatory AND intelligence items go in the same flat array.
+    Example structure: {"items": [{...}, {...}, ...]}
+    No other keys. No other text.
 """).strip()
 
 _SUMMARY_SYSTEM = textwrap.dedent("""
@@ -144,9 +148,9 @@ def _chat(system: str, user: str, json_mode: bool = False) -> str:
 
 _BATCH_FILTER_SYSTEM = _FILTER_SYSTEM + textwrap.dedent("""
 
-    You will receive a numbered list of articles. Return a JSON array with one object
-    per article in the same order:
-    [{"index": 1, "relevant": true/false, "confidence": "high/medium/low"}, ...]
+    You will receive a numbered list of articles. Return a JSON object with a single
+    key "results" containing one object per article in the same order:
+    {"results": [{"index": 1, "relevant": true/false, "confidence": "high/medium/low"}, ...]}
 """).rstrip()
 
 
@@ -170,9 +174,12 @@ def filter_relevant(articles: list[dict]) -> list[dict]:
         try:
             raw     = _chat(_BATCH_FILTER_SYSTEM, text, json_mode=True)
             parsed  = json.loads(raw)
-            # Unwrap if Groq returned {"results": [...]} instead of bare array
+            # Unwrap: expect {"results": [...]} but handle any wrapping
             if isinstance(parsed, dict):
-                parsed = next((v for v in parsed.values() if isinstance(v, list)), [])
+                if "results" in parsed and isinstance(parsed["results"], list):
+                    parsed = parsed["results"]
+                else:
+                    parsed = next((v for v in parsed.values() if isinstance(v, list)), [])
 
             decisions = {item["index"]: item for item in parsed if "index" in item}
             kept, dropped = 0, 0
@@ -227,20 +234,27 @@ def analyse_articles(articles: list[dict]) -> list[dict]:
         )
         try:
             raw   = _chat(_ANALYSIS_SYSTEM, prompt, json_mode=True)
-            # Groq json_object mode may wrap array in a key — unwrap if needed
             parsed = json.loads(raw)
+            batch_items: list = []
             if isinstance(parsed, list):
-                all_items.extend(parsed)
+                batch_items = parsed
             elif isinstance(parsed, dict):
-                # find the first list value
-                for v in parsed.values():
-                    if isinstance(v, list):
-                        all_items.extend(v)
-                        break
+                # Groq json_object mode wraps arrays — look for "items" key first,
+                # then fall back to collecting ALL top-level list values (no break,
+                # so we don't miss e.g. "intelligence_items" if LLM splits the output)
+                if "items" in parsed and isinstance(parsed["items"], list):
+                    batch_items = parsed["items"]
+                else:
+                    for v in parsed.values():
+                        if isinstance(v, list):
+                            batch_items.extend(v)
+            print(f"  [ANALYSIS] Batch {i//batch_size + 1}: {len(batch_items)} items extracted")
+            all_items.extend(batch_items)
         except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON parse failed in analysis batch {i}: {e}")
+            print(f"  [ERROR] JSON parse failed in analysis batch {i//batch_size + 1}: {e}")
+            print(f"  [ERROR] Raw response (first 500 chars): {raw[:500] if 'raw' in dir() else 'N/A'}")
         except Exception as e:
-            print(f"[ERROR] Analysis API call failed for batch {i}: {e}")
+            print(f"  [ERROR] Analysis API call failed for batch {i//batch_size + 1}: {e}")
 
     print(f"[INFO] Analysis produced {len(all_items)} regulatory items")
     return all_items
