@@ -35,6 +35,7 @@ STATUS_COLORS = {
     "PROPOSED":       colors.HexColor("#ca8a04"),  # amber — formal proposal
     "CONSULTATION":   colors.HexColor("#2563eb"),  # blue — open for comment
     "RUMORED":        colors.HexColor("#6b7280"),  # grey — unconfirmed
+    "INTELLIGENCE":   colors.HexColor("#0891b2"),  # teal — market/industry intelligence
 }
 
 SIGNIFICANCE_COLORS = {
@@ -145,14 +146,21 @@ def _render_item(item: dict, footnote_start: int, styles) -> tuple[list, list, i
     # Status + significance row
     status = item.get("status", "UNKNOWN")
     sig    = item.get("significance", "LOW")
-    meta_text = (
-        f'<b>{item.get("jurisdiction","")}</b> &nbsp;|&nbsp; '
-        f'<font color="{STATUS_COLORS.get(status, GREY_MID).hexval()}">'
-        f'<b>{status}</b></font>'
-        f'&nbsp;|&nbsp; '
-        f'<font color="{SIGNIFICANCE_COLORS.get(sig, GREY_MID).hexval()}">'
-        f'<b>{sig}</b></font>'
-    )
+    status_color = STATUS_COLORS.get(status, GREY_MID).hexval()
+    if status == "INTELLIGENCE":
+        # For intelligence items: show jurisdiction | INTELLIGENCE badge | note only
+        meta_text = (
+            f'<b>{item.get("jurisdiction","")}</b> &nbsp;|&nbsp; '
+            f'<font color="{status_color}"><b>{status}</b></font>'
+        )
+    else:
+        meta_text = (
+            f'<b>{item.get("jurisdiction","")}</b> &nbsp;|&nbsp; '
+            f'<font color="{status_color}"><b>{status}</b></font>'
+            f'&nbsp;|&nbsp; '
+            f'<font color="{SIGNIFICANCE_COLORS.get(sig, GREY_MID).hexval()}">'
+            f'<b>{sig}</b></font>'
+        )
     if item.get("status_note"):
         meta_text += f' &nbsp;— {item["status_note"]}'
     flowables.append(Paragraph(meta_text, styles["label"]))
@@ -234,14 +242,16 @@ def generate_weekly_pdf(
     story.append(Spacer(1, 0.5 * cm))
 
     # ── Summary stats table ──────────────────────────────────────────────────
-    high   = sum(1 for i in items if i.get("significance") == "HIGH")
-    medium = sum(1 for i in items if i.get("significance") == "MEDIUM")
-    low    = sum(1 for i in items if i.get("significance") == "LOW")
-    juris  = sorted({i.get("jurisdiction","") for i in items if i.get("jurisdiction")})
+    reg_items   = [i for i in items if i.get("status") != "INTELLIGENCE"]
+    intel_items = [i for i in items if i.get("status") == "INTELLIGENCE"]
+    high   = sum(1 for i in reg_items if i.get("significance") == "HIGH")
+    medium = sum(1 for i in reg_items if i.get("significance") == "MEDIUM")
+    low    = sum(1 for i in reg_items if i.get("significance") == "LOW")
+    juris  = sorted({i.get("jurisdiction","") for i in reg_items if i.get("jurisdiction")})
 
     stat_data = [
         [
-            Paragraph(f"<b>{len(items)}</b><br/>Total Items", styles["body"]),
+            Paragraph(f"<b>{len(reg_items)}</b><br/>Regulatory Items", styles["body"]),
             Paragraph(f'<font color="#dc2626"><b>{high}</b></font><br/>High', styles["body"]),
             Paragraph(f'<font color="#ea580c"><b>{medium}</b></font><br/>Medium', styles["body"]),
             Paragraph(f'<font color="#16a34a"><b>{low}</b></font><br/>Low', styles["body"]),
@@ -263,6 +273,14 @@ def generate_weekly_pdf(
         ("BOTTOMPADDING",(0, 0), (-1, -1), 8),
     ]))
     story.append(stat_table)
+    if intel_items:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(
+            f'<font color="#0891b2">Also includes <b>{len(intel_items)}</b> market intelligence '
+            f'item{"s" if len(intel_items) != 1 else ""}</font> '
+            f'(market reports, vendor news, industry analysis) — see end of report.',
+            styles["footnote"],
+        ))
     story.append(Spacer(1, 0.6 * cm))
 
     # ── Executive Summary ────────────────────────────────────────────────────
@@ -277,18 +295,34 @@ def generate_weekly_pdf(
     # ── Detailed Findings ────────────────────────────────────────────────────
     story.append(Paragraph("Detailed Findings", styles["section_head"]))
     story.append(Paragraph(
-        "Items are ordered by significance (High → Medium → Low) then by jurisdiction.",
+        "Regulatory items are ordered by significance (High → Medium → Low) then by jurisdiction.",
         styles["footnote"],
     ))
     story.append(_hr())
 
     order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-    sorted_items = sorted(items, key=lambda i: (order.get(i.get("significance","LOW"), 2), i.get("jurisdiction","")))
+    sorted_reg = sorted(reg_items, key=lambda i: (order.get(i.get("significance","LOW"), 2), i.get("jurisdiction","")))
 
-    for item in sorted_items:
+    for item in sorted_reg:
         flowables, footnotes, fn_idx = _render_item(item, fn_idx, styles)
         story.extend(flowables)
         all_footnotes.extend(footnotes)
+
+    # ── Market Intelligence & Commentary ─────────────────────────────────────
+    if intel_items:
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(Paragraph("Market Intelligence &amp; Commentary", styles["section_head"]))
+        story.append(Paragraph(
+            "Market reports, vendor announcements, industry analysis, and incident statistics "
+            "relevant to WWT's APAC business. These are not government regulatory actions.",
+            styles["footnote"],
+        ))
+        story.append(_hr())
+        sorted_intel = sorted(intel_items, key=lambda i: (order.get(i.get("significance","LOW"), 2), i.get("jurisdiction","")))
+        for item in sorted_intel:
+            flowables, footnotes, fn_idx = _render_item(item, fn_idx, styles)
+            story.extend(flowables)
+            all_footnotes.extend(footnotes)
 
     # ── Source Index ─────────────────────────────────────────────────────────
     if all_footnotes:

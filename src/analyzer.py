@@ -23,24 +23,24 @@ MODEL = "llama-3.3-70b-versatile"
 
 _FILTER_SYSTEM = textwrap.dedent("""
     You are a regulatory intelligence filter for World Wide Technology (WWT), a global
-    IT solutions provider. Your job is to assess whether a news article describes an ACTUAL
-    REGULATORY ACTION — meaning a government, regulator, or legislature has passed, proposed,
-    opened consultation on, or announced a specific law, regulation, policy, or binding standard
-    that could affect IT requirements in Asia Pacific markets.
+    IT solutions provider. Your job is to assess whether a news article is relevant to
+    WWT's business in Asia Pacific markets — either as a regulatory development OR as
+    useful market/industry intelligence.
 
-    IT requirements include: hardware procurement, software licensing, cloud services,
-    cybersecurity controls, data protection, network equipment, AI systems, storage,
-    telecommunications infrastructure, semiconductor supply chains, or data centre operations.
+    Mark as RELEVANT (relevant: true) if the article covers ANY of:
+    - A government, regulator, or legislature passing, proposing, or consulting on a law,
+      regulation, policy, or binding standard affecting IT in APAC
+    - Market size, growth forecasts, or adoption trends for IT infrastructure, cloud,
+      AI, cybersecurity, data centres, or telecom in APAC
+    - Significant cybersecurity incidents, threat reports, or breach statistics in APAC
+      that indicate demand for security solutions
+    - Vendor or hyperscaler announcements of major infrastructure investments in APAC
+    - Industry analysis or commentary on technology regulation or IT procurement in APAC
 
-    Mark as NOT RELEVANT (relevant: false) if the article is primarily:
-    - A market size report, industry forecast, or analyst market commentary
-    - A cybersecurity incident count, breach statistics, or threat report with no regulatory action
-    - A vendor product launch or corporate announcement
-    - General opinion or commentary without a specific government/regulatory action
-    - A conference report, award, or event coverage
-
-    Mark as RELEVANT (relevant: true) only if a specific government body, regulator, or
-    legislature has taken or announced a concrete regulatory action.
+    Mark as NOT RELEVANT (relevant: false) only if the article is:
+    - Entirely unrelated to IT, technology, or the APAC region
+    - A minor corporate personnel change, award, or event listing with no IT/regulatory context
+    - Duplicate or near-identical to another article with no new information
 
     Return ONLY a JSON object with this exact structure (no other text):
     {
@@ -61,32 +61,22 @@ _ANALYSIS_SYSTEM = textwrap.dedent("""
     healthcare, government/public sector, manufacturing, telecommunications, energy,
     and the data centre ecosystem (hyperscalers, colocation providers, GPUaaS builders).
 
-    You will be given a set of pre-filtered news articles. Your job is to identify and
-    analyse items that represent ACTUAL REGULATORY DEVELOPMENTS — meaning laws, regulations,
-    government policies, compliance requirements, or official standards that are enacted,
-    proposed, or under consultation.
+    You will be given a set of pre-filtered news articles. Analyse ALL of them and return
+    a JSON array. Use status = "INTELLIGENCE" for non-regulatory items (market reports,
+    vendor announcements, incident statistics, industry commentary). Use the regulatory
+    statuses for actual government actions.
 
-    STRICT EXCLUSION RULES — do NOT include an item if it is primarily:
-    - A market research report, market size statistic, or industry forecast
-    - A cybersecurity incident count, breach report, or threat statistics roundup
-    - A vendor announcement, product launch, or corporate press release
-    - General commentary, opinion, or analysis with no specific regulatory action
-    - A conference, award, or event report
-    Only include items where a government, regulator, or legislature has taken or
-    announced a specific action (passed law, issued regulation, opened consultation,
-    published draft, issued binding guideline, announced policy).
-
-    For each qualifying regulatory development, return a JSON array element with EXACTLY
-    these fields:
+    Each element must have EXACTLY these fields:
 
     {
-      "title": "concise, descriptive title naming the specific regulation/law (max 80 chars)",
+      "title": "concise, descriptive title (max 80 chars)",
       "jurisdiction": one of [Australia, Japan, India, Singapore, South Korea, Hong Kong,
                               Taiwan, Malaysia, Vietnam, Thailand, Macau, New Zealand,
                               Philippines, APAC-Wide],
-      "status": one of ["ENACTED", "PASSED-PENDING", "PROPOSED", "CONSULTATION", "RUMORED"],
-      "status_note": "brief clarification, e.g. 'effective 1 Jan 2026' or 'comment period closes Aug 2025'",
-      "summary": "3-4 sentences of plain-English explanation of what the regulation requires and who it affects",
+      "status": one of ["ENACTED", "PASSED-PENDING", "PROPOSED", "CONSULTATION",
+                        "RUMORED", "INTELLIGENCE"],
+      "status_note": "brief clarification — for INTELLIGENCE items describe the type, e.g. 'market report', 'vendor announcement', 'industry analysis', 'incident statistics'",
+      "summary": "3-4 sentences of plain-English explanation suitable for a non-technical executive",
       "it_categories": array from [cybersecurity, data_protection_privacy,
                         cloud_sovereignty, ai_ml_governance, telecommunications,
                         critical_infrastructure, hardware_supply_chain,
@@ -97,7 +87,7 @@ _ANALYSIS_SYSTEM = textwrap.dedent("""
                    energy_utilities, data_centre_ecosystem, retail_ecommerce, education],
       "significance": one of ["HIGH", "MEDIUM", "LOW"],
       "significance_rationale": "one sentence explaining why this significance level",
-      "wwt_relevance": "2-3 sentences on the SPECIFIC compliance requirement or procurement opportunity this creates for WWT customers — name the relevant WWT product/service category (e.g. security platforms, data centre infrastructure, network equipment) and which customer verticals are most affected",
+      "wwt_relevance": "2-3 sentences on the SPECIFIC opportunity or compliance risk for WWT accounts — name the relevant WWT product/service category (e.g. security platforms, data centre infrastructure, network equipment) and which customer verticals are most affected",
       "sources": [{"title": "source name or article headline", "url": "full URL"}]
     }
 
@@ -106,16 +96,22 @@ _ANALYSIS_SYSTEM = textwrap.dedent("""
     - PASSED-PENDING: passed but not yet effective (has a future effective date)
     - PROPOSED: formal draft published for legislative action
     - CONSULTATION: open consultation or public comment period underway
-    - RUMORED: credibly reported as planned but no formal document published yet
+    - RUMORED: credibly reported as planned but no formal document yet
+    - INTELLIGENCE: market report, vendor/hyperscaler announcement, incident statistics,
+                    or industry commentary — NOT a government regulatory action
 
-    Significance:
+    Significance for INTELLIGENCE items:
+    - HIGH: major market shift or large investment that creates a near-term procurement opportunity
+    - MEDIUM: useful trend or context worth monitoring
+    - LOW: background reference
+
+    Significance for regulatory items:
     - HIGH: compliance deadline within 18 months, affects multiple major verticals,
             or involves significant mandatory hardware/software procurement
     - MEDIUM: affects a specific vertical or product category, timeline > 18 months or uncertain
     - LOW: informational update, minor amendment, or very narrow scope
 
-    Consolidate multiple articles about the same regulatory development into one item.
-    If no articles meet the inclusion criteria, return an empty array [].
+    Consolidate multiple articles about the same development into one item.
     Return ONLY the JSON array, no other text whatsoever.
 """).strip()
 
@@ -253,20 +249,22 @@ def analyse_articles(articles: list[dict]) -> list[dict]:
 # ── Executive summary ─────────────────────────────────────────────────────────
 
 def write_executive_summary(items: list[dict], run_date: datetime) -> str:
-    high   = [i for i in items if i.get("significance") == "HIGH"]
-    medium = [i for i in items if i.get("significance") == "MEDIUM"]
-    low    = [i for i in items if i.get("significance") == "LOW"]
+    # Executive summary focuses on regulatory actions, not intelligence items
+    reg_items = [i for i in items if i.get("status") != "INTELLIGENCE"]
+    high   = [i for i in reg_items if i.get("significance") == "HIGH"]
+    medium = [i for i in reg_items if i.get("significance") == "MEDIUM"]
+    low    = [i for i in reg_items if i.get("significance") == "LOW"]
 
     # Summarise items compactly to stay within token limits
     compact = [
         {k: v for k, v in item.items() if k in
          ("title","jurisdiction","status","status_note","summary","significance","wwt_relevance")}
-        for item in items
+        for item in reg_items
     ]
 
     prompt = (
         f"Week ending {run_date.strftime('%d %B %Y')}. "
-        f"Total: {len(items)} items ({len(high)} HIGH, {len(medium)} MEDIUM, {len(low)} LOW).\n\n"
+        f"Total: {len(reg_items)} regulatory items ({len(high)} HIGH, {len(medium)} MEDIUM, {len(low)} LOW).\n\n"
         f"Items:\n{json.dumps(compact, indent=2, default=str)}\n\n"
         "Write a 3-5 paragraph executive summary. Open with the most urgent development. "
         "Mention specific jurisdictions, timelines, and products affected. "
