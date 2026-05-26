@@ -62,7 +62,7 @@ Provide Claude with your GitHub username when asked.
 
 | Secret name | Value |
 |-------------|-------|
-| `GEMINI_API_KEY` | Your `AIza...` key from aistudio.google.com |
+| `GROQ_API_KEY` | Your `gsk_...` key from console.groq.com |
 | `RESEND_API_KEY` | Your `re_...` key from resend.com |
 | `RECIPIENT_EMAIL` | `hamilton.lau@wwt.com` |
 
