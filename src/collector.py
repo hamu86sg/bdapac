@@ -1,20 +1,18 @@
 """
-Fetches articles from RSS feeds and Google News RSS.
-Returns a deduplicated, date-sorted list of Article dicts.
+Fetches articles from RSS/Atom feeds and Google News RSS.
 
-- All HTTP fetches use a 10-second timeout.
-- Falls back to feedparser's own URL fetch if httpx fails.
-- Total articles capped at MAX_ARTICLES (most recent first).
-- Verbose logging so GitHub Actions logs show exactly what was collected.
+Deliberately simple: feedparser handles all URL fetching directly
+(it was designed for this). A socket-level timeout prevents hanging
+on slow or unresponsive sources.
 """
 
 import hashlib
+import socket
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 
 import feedparser
-import httpx
 from bs4 import BeautifulSoup
 from dateutil import parser as dateparser
 
@@ -29,8 +27,9 @@ from config import (
 
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (compatible; APACRegulatoryMonitor/1.0; "
-        "+https://github.com/hamu86sg/bdapac)"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
     )
 }
 
@@ -39,11 +38,9 @@ GOOGLE_NEWS_RSS = (
     "&hl=en&gl=SG&ceid=SG:en"
 )
 
-FETCH_TIMEOUT = 10     # seconds per HTTP request
-MAX_ARTICLES  = 80     # cap before Groq analysis
+SOCKET_TIMEOUT = 15    # seconds — applies to all feedparser URL fetches
+MAX_ARTICLES   = 80    # cap before Groq analysis
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _article_id(url: str, title: str) -> str:
     key = (url or title or "").strip().lower()
@@ -89,7 +86,10 @@ def _entry_to_article(entry, source_name: str) -> dict:
             summary = raw
             break
     if summary:
-        summary = BeautifulSoup(summary, "lxml").get_text(separator=" ", strip=True)
+        try:
+            summary = BeautifulSoup(summary, "lxml").get_text(separator=" ", strip=True)
+        except Exception:
+            pass
     return {
         "id":        _article_id(link, title),
         "title":     title,
@@ -100,51 +100,39 @@ def _entry_to_article(entry, source_name: str) -> dict:
     }
 
 
-def _process_feed(parsed_feed, source_name: str, cutoff: datetime) -> list[dict]:
-    """Extract relevant, recent articles from an already-parsed feedparser object."""
-    total    = len(parsed_feed.entries)
+def _fetch_feed(url: str, source_name: str, cutoff: datetime) -> list[dict]:
+    """Fetch one feed. Uses feedparser's own URL fetcher with a socket timeout."""
+    old_timeout = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(SOCKET_TIMEOUT)
+        feed = feedparser.parse(url, request_headers=HEADERS)
+    except Exception as e:
+        print(f"  [FAIL] {source_name}: {e}")
+        return []
+    finally:
+        socket.setdefaulttimeout(old_timeout)
+
+    if feed.bozo and not feed.entries:
+        print(f"  [SKIP] {source_name}: feed error — {getattr(feed, 'bozo_exception', 'unknown')}")
+        return []
+
     articles = []
-    for entry in parsed_feed.entries:
+    for entry in feed.entries:
         article = _entry_to_article(entry, source_name)
         if not _is_recent(article["published"], cutoff):
             continue
         if _quick_relevant(article["title"] + " " + article["summary"]):
             articles.append(article)
 
-    if total > 0:
+    total = len(feed.entries)
+    if articles:
         print(f"  [OK] {source_name}: {total} entries → {len(articles)} relevant")
+    elif total > 0:
+        print(f"  [OK] {source_name}: {total} entries → 0 matched keyword filter")
     else:
-        print(f"  [EMPTY] {source_name}: feed parsed but no entries found")
+        print(f"  [EMPTY] {source_name}: no entries in feed")
+
     return articles
-
-
-def _fetch_feed(url: str, source_name: str, cutoff: datetime) -> list[dict]:
-    """
-    Fetch one RSS/Atom feed.
-    Attempt 1: httpx (enforces timeout, raises on 4xx/5xx).
-    Attempt 2: feedparser direct URL fetch (different HTTP stack, more lenient).
-    """
-    # Attempt 1 — httpx
-    try:
-        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
-            response = client.get(url, headers=HEADERS)
-            response.raise_for_status()
-        parsed = feedparser.parse(response.content)
-        return _process_feed(parsed, source_name, cutoff)
-    except httpx.TimeoutException:
-        print(f"  [TIMEOUT] {source_name} — trying feedparser direct fetch")
-    except httpx.HTTPStatusError as e:
-        print(f"  [HTTP {e.response.status_code}] {source_name} — trying feedparser direct fetch")
-    except Exception as e:
-        print(f"  [WARN] {source_name} httpx: {type(e).__name__} — trying feedparser direct fetch")
-
-    # Attempt 2 — feedparser's own URL fetcher
-    try:
-        parsed = feedparser.parse(url, request_headers=HEADERS)
-        return _process_feed(parsed, source_name, cutoff)
-    except Exception as e:
-        print(f"  [FAIL] {source_name} both methods failed: {e}")
-        return []
 
 
 def _fetch_google_news(query: str, cutoff: datetime) -> list[dict]:
@@ -152,16 +140,12 @@ def _fetch_google_news(query: str, cutoff: datetime) -> list[dict]:
     return _fetch_feed(url, f"Google News: {query[:60]}", cutoff)
 
 
-# ── Public collection functions ───────────────────────────────────────────────
-
 def collect_weekly() -> list[dict]:
-    """Collect articles from the past 7 days across all sources."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=WEEKLY_LOOKBACK_DAYS)
     return _collect(cutoff)
 
 
 def collect_daily() -> list[dict]:
-    """Collect articles from the past ~26 hours for the daily flash check."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=DAILY_LOOKBACK_HOURS)
     return _collect(cutoff)
 
@@ -177,26 +161,26 @@ def _collect(cutoff: datetime) -> list[dict]:
             for a in articles:
                 a["jurisdiction_hint"] = jurisdiction
             all_articles.extend(articles)
-            time.sleep(0.2)
+            time.sleep(0.3)
 
     print("[INFO] === Aggregator feeds ===")
     for feed_def in AGGREGATOR_FEEDS:
         all_articles.extend(_fetch_feed(feed_def["url"], feed_def["name"], cutoff))
-        time.sleep(0.2)
+        time.sleep(0.3)
 
     print("[INFO] === Google News queries ===")
     for query in GOOGLE_NEWS_QUERIES:
         all_articles.extend(_fetch_google_news(query, cutoff))
-        time.sleep(0.3)
+        time.sleep(0.5)
 
-    # Deduplicate by article ID
+    # Deduplicate
     deduped = []
     for article in all_articles:
         if article["id"] not in seen_ids:
             seen_ids.add(article["id"])
             deduped.append(article)
 
-    print(f"\n[INFO] === Collection complete: {len(deduped)} unique relevant articles ===")
+    print(f"\n[INFO] Total unique relevant articles collected: {len(deduped)}")
 
     # Sort newest-first, cap to MAX_ARTICLES
     deduped.sort(
@@ -207,5 +191,4 @@ def _collect(cutoff: datetime) -> list[dict]:
         print(f"[INFO] Capping to {MAX_ARTICLES} most recent")
         deduped = deduped[:MAX_ARTICLES]
 
-    print(f"[INFO] Sending {len(deduped)} articles to Groq for analysis")
     return deduped
