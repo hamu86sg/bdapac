@@ -120,20 +120,48 @@ def _chat(system: str, user: str, json_mode: bool = False) -> str:
 
 # ── Pass 1: Relevance filter ──────────────────────────────────────────────────
 
+_BATCH_FILTER_SYSTEM = _FILTER_SYSTEM + textwrap.dedent("""
+
+    You will receive a numbered list of articles. Return a JSON array with one object
+    per article in the same order:
+    [{"index": 1, "relevant": true/false, "confidence": "high/medium/low"}, ...]
+""").rstrip()
+
+
 def filter_relevant(articles: list[dict]) -> list[dict]:
-    """Use a fast LLM call to drop articles that are not about IT regulatory changes."""
-    relevant = []
-    for article in articles:
-        text = f"Title: {article['title']}\n\nSummary: {article['summary']}"
+    """Filter articles in batches of 10 — reduces API calls from N to N/10."""
+    if not articles:
+        return []
+
+    relevant   = []
+    batch_size = 10   # 10 articles per Groq call → 8 calls for 80 articles
+
+    for batch_start in range(0, len(articles), batch_size):
+        batch = articles[batch_start : batch_start + batch_size]
+
+        # Format the batch as a numbered list
+        lines = []
+        for i, a in enumerate(batch, 1):
+            lines.append(f"[{i}] TITLE: {a['title']}\nSUMMARY: {a['summary'][:300]}")
+        text = "\n\n".join(lines)
+
         try:
-            raw    = _chat(_FILTER_SYSTEM, text, json_mode=True)
-            result = json.loads(raw)
-            if result.get("relevant"):
-                article["filter_confidence"] = result.get("confidence", "medium")
-                relevant.append(article)
+            raw     = _chat(_BATCH_FILTER_SYSTEM, text, json_mode=True)
+            parsed  = json.loads(raw)
+            # Unwrap if Groq returned {"results": [...]} instead of bare array
+            if isinstance(parsed, dict):
+                parsed = next((v for v in parsed.values() if isinstance(v, list)), [])
+
+            decisions = {item["index"]: item for item in parsed if "index" in item}
+            for i, article in enumerate(batch, 1):
+                decision = decisions.get(i, {})
+                if decision.get("relevant", True):   # include if uncertain
+                    article["filter_confidence"] = decision.get("confidence", "medium")
+                    relevant.append(article)
+
         except Exception as e:
-            print(f"[WARN] Filter failed for '{article['title'][:60]}': {e}")
-            relevant.append(article)  # include on error — safer to over-collect
+            print(f"[WARN] Batch filter failed (including all {len(batch)}): {e}")
+            relevant.extend(batch)  # include on error
 
     print(f"[INFO] Relevance filter: {len(relevant)}/{len(articles)} articles passed")
     return relevant
