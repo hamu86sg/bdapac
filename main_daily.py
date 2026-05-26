@@ -12,7 +12,7 @@ sys.path.insert(0, "src")
 from analyzer import analyse_articles, filter_relevant, write_flash_summary
 from collector import collect_daily
 from config import DAILY_FLASH_MIN_HIGH_ITEMS, DAILY_FLASH_MIN_ITEMS
-from emailer import send_flash_digest
+from emailer import save_flash_digest
 from pdf_generator import generate_flash_pdf
 
 
@@ -54,9 +54,9 @@ def main():
     pdf_bytes = generate_flash_pdf(high_items, flash_summary, run_date)
     print(f"[INFO] Flash PDF generated ({len(pdf_bytes):,} bytes)")
 
-    # 8. Email
-    send_flash_digest(pdf_bytes, run_date, headline)
-    print("[DONE] Flash digest sent.")
+    # 8. Save (GitHub Actions will upload as downloadable artifact)
+    save_flash_digest(pdf_bytes, run_date, headline)
+    print("[DONE] Flash digest saved.")
 
 
 if __name__ == "__main__":

@@ -28,5 +28,12 @@ jobs:
         run: python main_weekly.py
         env:
           GROQ_API_KEY:     ${{ secrets.GROQ_API_KEY }}
-          RESEND_API_KEY:   ${{ secrets.RESEND_API_KEY }}
           RECIPIENT_EMAIL:  ${{ secrets.RECIPIENT_EMAIL }}
+          RESEND_API_KEY:   ${{ secrets.RESEND_API_KEY }}   # optional — skipped if blank
+
+      - name: Upload PDF report
+        uses: actions/upload-artifact@v4
+        with:
+          name: APAC-Reg-Memo-${{ github.run_number }}
+          path: "APAC_Reg_Memo_*.pdf"
+          retention-days: 90

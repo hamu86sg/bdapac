@@ -11,7 +11,7 @@ sys.path.insert(0, "src")
 
 from analyzer import analyse_articles, filter_relevant, write_executive_summary
 from collector import collect_weekly
-from emailer import send_weekly_report
+from emailer import save_weekly_report
 from pdf_generator import generate_weekly_pdf
 
 
@@ -39,8 +39,8 @@ def main():
     pdf_bytes = generate_weekly_pdf(items, exec_summary, run_date)
     print(f"[INFO] PDF generated ({len(pdf_bytes):,} bytes)")
 
-    # 6. Email
-    send_weekly_report(pdf_bytes, run_date)
+    # 6. Save (GitHub Actions will upload as downloadable artifact)
+    save_weekly_report(pdf_bytes, run_date)
     print("[DONE] Weekly report complete.")
 
 
