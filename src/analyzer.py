@@ -153,17 +153,23 @@ def filter_relevant(articles: list[dict]) -> list[dict]:
                 parsed = next((v for v in parsed.values() if isinstance(v, list)), [])
 
             decisions = {item["index"]: item for item in parsed if "index" in item}
+            kept, dropped = 0, 0
             for i, article in enumerate(batch, 1):
                 decision = decisions.get(i, {})
-                if decision.get("relevant", True):   # include if uncertain
+                # Default to INCLUDE when uncertain — better to over-collect
+                if decision.get("relevant", True):
                     article["filter_confidence"] = decision.get("confidence", "medium")
                     relevant.append(article)
+                    kept += 1
+                else:
+                    dropped += 1
+            print(f"  [FILTER] Batch {batch_start//batch_size + 1}: kept {kept}, dropped {dropped}")
 
         except Exception as e:
-            print(f"[WARN] Batch filter failed (including all {len(batch)}): {e}")
+            print(f"  [WARN] Batch filter failed (including all {len(batch)}): {e}")
             relevant.extend(batch)  # include on error
 
-    print(f"[INFO] Relevance filter: {len(relevant)}/{len(articles)} articles passed")
+    print(f"[INFO] Relevance filter: {len(relevant)}/{len(articles)} articles passed to deep analysis")
     return relevant
 
 
