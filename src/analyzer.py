@@ -135,7 +135,7 @@ def _chat(system: str, user: str, json_mode: bool = False) -> str:
             {"role": "user",   "content": user},
         ],
         "temperature": 0.2,
-        "max_tokens":  8000,
+        "max_tokens":  32000,
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}

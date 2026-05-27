@@ -9,15 +9,32 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, "src")
 
-from analyzer import analyse_articles, filter_relevant, write_executive_summary
+from analyzer import analyse_articles, filter_relevant, write_executive_summary, client, MODEL
 from collector import collect_weekly
 from emailer import save_weekly_report
 from pdf_generator import generate_weekly_pdf
 
 
+def _check_groq():
+    """Quick smoke-test: one tiny Groq call to verify the API key works."""
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": "Reply with the word OK only."}],
+            max_tokens=5,
+        )
+        print(f"[CHECK] Groq API: OK (model={MODEL})")
+    except Exception as e:
+        print(f"[CHECK] Groq API: FAILED — {type(e).__name__}: {e}")
+        raise SystemExit(1)
+
+
 def main():
     run_date = datetime.now(timezone.utc)
     print(f"[START] Weekly report run — {run_date.isoformat()}")
+
+    # 0. Verify Groq is reachable before doing expensive collection
+    _check_groq()
 
     # 1. Collect
     raw_articles = collect_weekly()
