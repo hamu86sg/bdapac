@@ -61,10 +61,21 @@ _ANALYSIS_SYSTEM = textwrap.dedent("""
     healthcare, government/public sector, manufacturing, telecommunications, energy,
     and the data centre ecosystem (hyperscalers, colocation providers, GPUaaS builders).
 
-    You will be given a set of pre-filtered news articles. Analyse ALL of them and return
-    a JSON array. Use status = "INTELLIGENCE" for non-regulatory items (market reports,
-    vendor announcements, incident statistics, industry commentary). Use the regulatory
-    statuses for actual government actions.
+    You will be given a set of pre-filtered news articles. Some articles may be in
+    Japanese, Korean, Chinese, Malay, Vietnamese, Thai, or Hindi — analyse these too.
+    ALL output fields must be written in English regardless of source language.
+    Where a source title is in a non-English language, include the original title in
+    the sources array alongside the URL.
+
+    Analyse ALL articles and return a JSON array. Use status = "INTELLIGENCE" for
+    non-regulatory items (market reports, vendor announcements, incident statistics,
+    industry commentary). Use the regulatory statuses for actual government actions.
+
+    Pay particular attention to:
+    - Import regulations, tariffs, quotas, or bans on IT hardware or software
+    - Licensing requirements for distributors, wholesalers, resellers, dealers,
+      system integrators, or channel partners selling IT products
+    - Changes to government-approved vendor lists or procurement certification requirements
 
     Each element must have EXACTLY these fields:
 

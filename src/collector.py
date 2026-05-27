@@ -20,6 +20,7 @@ from config import (
     AGGREGATOR_FEEDS,
     DAILY_LOOKBACK_HOURS,
     GOOGLE_NEWS_QUERIES,
+    LOCALIZED_QUERIES,
     OFFICIAL_FEEDS,
     RELEVANCE_KEYWORDS,
     WEEKLY_LOOKBACK_DAYS,
@@ -35,11 +36,11 @@ HEADERS = {
 
 GOOGLE_NEWS_RSS = (
     "https://news.google.com/rss/search?q={query}"
-    "&hl=en&gl=SG&ceid=SG:en"
+    "&hl={hl}&gl={gl}&ceid={ceid}"
 )
 
 SOCKET_TIMEOUT = 15    # seconds — applies to all feedparser URL fetches
-MAX_ARTICLES   = 80    # cap before Groq analysis
+MAX_ARTICLES   = 120   # cap before Groq analysis (raised to accommodate multilingual sources)
 
 
 def _article_id(url: str, title: str) -> str:
@@ -135,9 +136,21 @@ def _fetch_feed(url: str, source_name: str, cutoff: datetime) -> list[dict]:
     return articles
 
 
-def _fetch_google_news(query: str, cutoff: datetime) -> list[dict]:
-    url = GOOGLE_NEWS_RSS.format(query=quote_plus(query))
-    return _fetch_feed(url, f"Google News: {query[:60]}", cutoff)
+def _fetch_google_news(
+    query: str,
+    cutoff: datetime,
+    hl: str = "en",
+    gl: str = "SG",
+    ceid: str = "SG:en",
+) -> list[dict]:
+    url = GOOGLE_NEWS_RSS.format(
+        query=quote_plus(query),
+        hl=hl,
+        gl=gl,
+        ceid=ceid,
+    )
+    lang_tag = "" if hl == "en" else f"[{hl}] "
+    return _fetch_feed(url, f"Google News: {lang_tag}{query[:55]}", cutoff)
 
 
 def collect_weekly() -> list[dict]:
@@ -168,9 +181,19 @@ def _collect(cutoff: datetime) -> list[dict]:
         all_articles.extend(_fetch_feed(feed_def["url"], feed_def["name"], cutoff))
         time.sleep(0.3)
 
-    print("[INFO] === Google News queries ===")
+    print("[INFO] === Google News queries (English) ===")
     for query in GOOGLE_NEWS_QUERIES:
         all_articles.extend(_fetch_google_news(query, cutoff))
+        time.sleep(0.5)
+
+    print("[INFO] === Google News queries (local languages) ===")
+    for q in LOCALIZED_QUERIES:
+        all_articles.extend(_fetch_google_news(
+            q["q"], cutoff,
+            hl=q.get("hl", "en"),
+            gl=q.get("gl", "SG"),
+            ceid=q.get("ceid", "SG:en"),
+        ))
         time.sleep(0.5)
 
     # Deduplicate

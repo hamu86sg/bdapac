@@ -96,6 +96,66 @@ GOOGLE_NEWS_QUERIES = [
     "Asia Pacific cloud computing localization regulation",
     "Asia Pacific semiconductor export control",
     "Asia Pacific telecom 5G regulation",
+    # ── Import regulations, tariffs, quotas ──
+    "Asia Pacific IT hardware import regulation tariff customs duty",
+    "Asia Pacific technology equipment import quota restriction ban",
+    "Australia technology import customs duty regulation",
+    "Japan IT equipment import tariff regulation",
+    "India IT hardware import duty regulation customs DPIIT",
+    "Singapore Malaysia technology import licensing restriction",
+    "South Korea Taiwan semiconductor import export regulation",
+    "Vietnam Thailand IT equipment import regulation customs",
+    "APAC ICT equipment import quota tariff trade restriction",
+    "China APAC technology import restriction ban hardware",
+    # ── Distributor, reseller, system integrator licensing ──
+    "Asia Pacific IT distributor license requirement regulation",
+    "APAC technology reseller wholesaler licensing compliance",
+    "Asia Pacific system integrator certification accreditation requirement",
+    "APAC IT channel partner authorized distributor regulation",
+    "Australia Singapore India technology reseller license permit",
+    "Asia Pacific value-added reseller VAR certification requirement",
+    "APAC IT vendor channel compliance distributor accreditation",
+    "Asia Pacific government IT procurement vendor certification",
+]
+
+# ── Localised Google News queries (non-English) ──────────────────────────────
+# Local-language queries catch regulatory announcements that never appear in
+# English news. Each entry specifies the query text and the Google News locale.
+LOCALIZED_QUERIES = [
+    # ── Japan (Japanese) ──
+    {"q": "サイバーセキュリティ 規制 法律 ガイドライン",      "hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    {"q": "データ保護 個人情報 プライバシー 法律 規制",       "hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    {"q": "デジタル庁 AI 人工知能 規制 法案",               "hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    {"q": "IT機器 輸入規制 ライセンス 流通 卸売 販売代理店", "hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    {"q": "金融庁 経済産業省 IT クラウド 規制 指針",         "hl": "ja", "gl": "JP", "ceid": "JP:ja"},
+    # ── South Korea (Korean) ──
+    {"q": "사이버보안 정보보호 규제 법률 정책",               "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    {"q": "개인정보보호법 데이터 규제 IT",                   "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    {"q": "인공지능 AI 규제 법안 정책",                     "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    {"q": "IT 유통 총판 리셀러 라이선스 인증 규정",           "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+    # ── Taiwan (Traditional Chinese) ──
+    {"q": "資安 網路安全 法規 規定 台灣",                    "hl": "zh-TW", "gl": "TW", "ceid": "TW:zh-Hant"},
+    {"q": "個人資料保護法 數位 AI 規定",                    "hl": "zh-TW", "gl": "TW", "ceid": "TW:zh-Hant"},
+    {"q": "IT 進口 關稅 通路 代理商 法規",                   "hl": "zh-TW", "gl": "TW", "ceid": "TW:zh-Hant"},
+    # ── Hong Kong (Traditional Chinese) ──
+    {"q": "網絡安全 數據保護 私隱 法規 香港",                "hl": "zh-HK", "gl": "HK", "ceid": "HK:zh-Hant"},
+    {"q": "人工智能 AI 科技 監管 規定 香港",                 "hl": "zh-HK", "gl": "HK", "ceid": "HK:zh-Hant"},
+    # ── Malaysia (Malay) ──
+    {"q": "keselamatan siber regulasi undang-undang Malaysia",       "hl": "ms", "gl": "MY", "ceid": "MY:ms"},
+    {"q": "perlindungan data peribadi PDPA lesen peraturan",         "hl": "ms", "gl": "MY", "ceid": "MY:ms"},
+    {"q": "pengedar pemborong reseller IT lesen keperluan peraturan", "hl": "ms", "gl": "MY", "ceid": "MY:ms"},
+    # ── Vietnam (Vietnamese) ──
+    {"q": "an ninh mạng quy định pháp luật công nghệ thông tin",    "hl": "vi", "gl": "VN", "ceid": "VN:vi"},
+    {"q": "bảo vệ dữ liệu cá nhân quy định AI trí tuệ nhân tạo",   "hl": "vi", "gl": "VN", "ceid": "VN:vi"},
+    {"q": "nhập khẩu thiết bị CNTT giấy phép phân phối quy định",   "hl": "vi", "gl": "VN", "ceid": "VN:vi"},
+    # ── Thailand (Thai) ──
+    {"q": "ความปลอดภัยไซเบอร์ กฎหมาย พระราชบัญญัติ",             "hl": "th", "gl": "TH", "ceid": "TH:th"},
+    {"q": "PDPA คุ้มครองข้อมูลส่วนบุคคล กฎหมาย ระเบียบ",          "hl": "th", "gl": "TH", "ceid": "TH:th"},
+    {"q": "นำเข้าอุปกรณ์ IT ใบอนุญาต ผู้จัดจำหน่าย กฎระเบียบ",   "hl": "th", "gl": "TH", "ceid": "TH:th"},
+    # ── India (Hindi) ──
+    {"q": "साइबर सुरक्षा नियम कानून भारत",                       "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
+    {"q": "डेटा संरक्षण गोपनीयता कानून डिजिटल",                  "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
+    {"q": "आईटी उपकरण आयात लाइसेंस वितरक नियम",                  "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
 ]
 
 # ── Relevance keywords ────────────────────────────────────────────────────────
@@ -112,6 +172,16 @@ RELEVANCE_KEYWORDS = [
     "government", "ministry", "authority", "agency", "regulator",
     "banned", "prohibited", "required", "mandatory", "approved", "enacted",
     "passed", "signed", "implemented", "proposed", "consulted", "rules",
+    # Import / trade controls
+    "import", "export", "customs", "tariff", "quota", "duty", "trade restriction",
+    "import ban", "import quota", "import licence", "import license",
+    "customs duty", "border", "procurement", "tender",
+    # Channel / distribution licensing
+    "distributor", "distribution", "reseller", "wholesaler", "dealer",
+    "channel partner", "system integrator", "value-added reseller", "VAR",
+    "authorized reseller", "authorized dealer", "accreditation",
+    "licence", "license", "permit", "certified", "certification",
+    "registered", "registration", "approved vendor", "vendor list",
 ]
 
 # ── Jurisdictions tracked ─────────────────────────────────────────────────────
