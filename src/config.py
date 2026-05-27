@@ -156,32 +156,58 @@ LOCALIZED_QUERIES = [
     {"q": "साइबर सुरक्षा नियम कानून भारत",                       "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
     {"q": "डेटा संरक्षण गोपनीयता कानून डिजिटल",                  "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
     {"q": "आईटी उपकरण आयात लाइसेंस वितरक नियम",                  "hl": "hi", "gl": "IN", "ceid": "IN:hi"},
+    # ── Indonesia (Bahasa Indonesia) ──
+    {"q": "keamanan siber regulasi undang-undang teknologi Indonesia",      "hl": "id", "gl": "ID", "ceid": "ID:id"},
+    {"q": "perlindungan data pribadi PDP regulasi digital Indonesia",       "hl": "id", "gl": "ID", "ceid": "ID:id"},
+    {"q": "kecerdasan buatan AI regulasi kebijakan Indonesia",              "hl": "id", "gl": "ID", "ceid": "ID:id"},
+    {"q": "importir distributor reseller lisensi izin teknologi IT",        "hl": "id", "gl": "ID", "ceid": "ID:id"},
+    {"q": "Kominfo BSSN OJK regulasi teknologi digital Indonesia",          "hl": "id", "gl": "ID", "ceid": "ID:id"},
 ]
 
 # ── Relevance keywords ────────────────────────────────────────────────────────
 RELEVANCE_KEYWORDS = [
-    "regulation", "legislation", "law", "act", "bill", "directive", "circular",
-    "guideline", "framework", "requirement", "standard", "compliance", "mandate",
-    "enforcement", "amendment", "consultation", "draft", "proposal", "policy",
-    "cybersecurity", "cyber security", "data protection", "data privacy",
-    "cloud", "artificial intelligence", "AI", "machine learning", "data centre",
-    "data center", "semiconductor", "hardware", "software", "network",
-    "telecommunications", "telecom", "encryption", "cryptography",
-    "critical infrastructure", "supply chain", "digital", "fintech",
-    "open banking", "CBDC", "digital currency", "privacy",
-    "government", "ministry", "authority", "agency", "regulator",
-    "banned", "prohibited", "required", "mandatory", "approved", "enacted",
-    "passed", "signed", "implemented", "proposed", "consulted", "rules",
-    # Import / trade controls
-    "import", "export", "customs", "tariff", "quota", "duty", "trade restriction",
-    "import ban", "import quota", "import licence", "import license",
-    "customs duty", "border", "procurement", "tender",
-    # Channel / distribution licensing
-    "distributor", "distribution", "reseller", "wholesaler", "dealer",
-    "channel partner", "system integrator", "value-added reseller", "VAR",
-    "authorized reseller", "authorized dealer", "accreditation",
-    "licence", "license", "permit", "certified", "certification",
-    "registered", "registration", "approved vendor", "vendor list",
+    # Regulatory / legal process words
+    "regulation", "regulations", "regulatory", "legislation", "legislative",
+    "law", "laws", "legal", "act", "acts", "bill", "bills",
+    "directive", "circular", "guideline", "guidelines", "framework",
+    "requirement", "requirements", "standard", "standards",
+    "compliance", "mandate", "mandated", "mandatory", "enforcement",
+    "amendment", "amendments", "consultation", "draft", "proposal",
+    "policy", "policies", "rule", "rules", "ruling", "order", "decree",
+    "code", "codes", "notice", "notification", "gazette",
+    "enacted", "enacted", "passed", "signed", "implemented", "proposed",
+    "approved", "prohibited", "banned", "restricted",
+    # Technology domains
+    "cybersecurity", "cyber security", "cyber", "cyber law", "cyber rules",
+    "data protection", "data privacy", "privacy", "personal data",
+    "cloud", "cloud computing", "cloud services",
+    "artificial intelligence", "AI", "machine learning", "generative AI",
+    "data centre", "data center", "data centers", "data centres",
+    "semiconductor", "chip", "chips", "hardware", "software",
+    "network", "networking", "telecoms", "telecommunications", "telecom",
+    "5G", "broadband", "internet", "digital",
+    "encryption", "cryptography", "quantum",
+    "critical infrastructure", "supply chain", "fintech",
+    "open banking", "CBDC", "digital currency", "blockchain",
+    "IoT", "internet of things", "edge computing",
+    # Regulatory bodies / actors
+    "government", "ministry", "minister", "authority", "agency",
+    "regulator", "regulates", "regulated", "parliament", "congress",
+    "cabinet", "senate", "commission", "committee", "bureau", "department",
+    # Import / trade / customs
+    "import", "imports", "imported", "importing",
+    "export", "exports", "exported",
+    "customs", "tariff", "tariffs", "quota", "quotas",
+    "duty", "duties", "trade", "trade restriction", "trade barrier",
+    "border", "procurement", "tender", "sanctions",
+    # Distribution / channel licensing
+    "distributor", "distributors", "distribution",
+    "reseller", "resellers", "wholesaler", "wholesalers", "dealer", "dealers",
+    "channel partner", "channel partners", "system integrator",
+    "value-added reseller", "VAR", "authorized dealer",
+    "licence", "licences", "license", "licenses", "licensing",
+    "permit", "permits", "accreditation", "certified", "certification",
+    "registered", "registration", "approved vendor",
 ]
 
 # ── Jurisdictions tracked ─────────────────────────────────────────────────────

@@ -138,7 +138,7 @@ _SUMMARY_SYSTEM = textwrap.dedent("""
 """).strip()
 
 
-def _chat(system: str, user: str, json_mode: bool = False) -> str:
+def _chat(system: str, user: str, json_mode: bool = False, max_tokens: int = 8000) -> str:
     kwargs = {
         "model":    MODEL,
         "messages": [
@@ -146,7 +146,7 @@ def _chat(system: str, user: str, json_mode: bool = False) -> str:
             {"role": "user",   "content": user},
         ],
         "temperature": 0.2,
-        "max_tokens":  32000,
+        "max_tokens":  max_tokens,
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -183,7 +183,7 @@ def filter_relevant(articles: list[dict]) -> list[dict]:
         text = "\n\n".join(lines)
 
         try:
-            raw     = _chat(_BATCH_FILTER_SYSTEM, text, json_mode=True)
+            raw     = _chat(_BATCH_FILTER_SYSTEM, text, json_mode=True, max_tokens=600)
             parsed  = json.loads(raw)
             # Unwrap: expect {"results": [...]} but handle any wrapping
             if isinstance(parsed, dict):
@@ -298,7 +298,7 @@ def write_executive_summary(items: list[dict], run_date: datetime) -> str:
     )
 
     try:
-        return _chat(_SUMMARY_SYSTEM, prompt).strip()
+        return _chat(_SUMMARY_SYSTEM, prompt, max_tokens=2000).strip()
     except Exception as e:
         print(f"[ERROR] Executive summary failed: {e}")
         return "Executive summary unavailable due to an error. See detailed findings below."
@@ -323,7 +323,7 @@ def write_flash_summary(items: list[dict], run_date: datetime) -> str:
     )
 
     try:
-        return _chat(_SUMMARY_SYSTEM, prompt).strip()
+        return _chat(_SUMMARY_SYSTEM, prompt, max_tokens=1500).strip()
     except Exception as e:
         print(f"[ERROR] Flash summary failed: {e}")
         return "Flash summary unavailable. See items below."
